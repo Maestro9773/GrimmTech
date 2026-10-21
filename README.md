@@ -15,6 +15,7 @@ WorkDevin/
 ├── config/                 # Конфигурация
 │   ├── requirements.txt   # Зависимости
 │   └── .env.example       # Пример переменных окружения
+├── runtime.txt             # Версия Python (обязательно для Render)
 ├── README.md              # Документация
 └── .gitignore             # Git ignore
 ```
