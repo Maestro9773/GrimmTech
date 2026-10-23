@@ -6,8 +6,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from aiogram import Bot, Dispatcher, types
-from aiogram.filters import CommandStart, Command
-from aiogram.client.default import DefaultBotProperties
+from aiogram.dispatcher.filters import CommandStart, Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 
 # --- Настройки ---
@@ -19,8 +18,8 @@ MSK = ZoneInfo("Europe/Moscow")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s]: %(message)s")
 log = logging.getLogger("bot")
 
-bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=None))
-dp = Dispatcher()
+bot = Bot(token=TOKEN)
+dp = Dispatcher(bot)
 
 # --- Загрузка расписания ---
 def load_schedule():
@@ -216,31 +215,47 @@ async def cmd_update(msg: types.Message):
         await msg.answer(f"❌ Ошибка обновления: {e}")
 
 # --- Обработчики callback кнопок ---
-@dp.callback_query()
-async def callback_handler(query: CallbackQuery):
-    """Обработчик всех callback кнопок."""
-    data = query.data
+@dp.callback_query_handler(lambda c: c.data == "schedule_today")
+async def callback_schedule_today(query: types.CallbackQuery):
     schedule = load_schedule()
-    
-    if data == "schedule_today":
-        date_str = datetime.now(MSK).strftime("%Y-%m-%d")
-        await query.message.edit_text(format_schedule_for_date(date_str, schedule), reply_markup=get_main_keyboard())
-    elif data == "schedule_tomorrow":
-        date_str = (datetime.now(MSK) + timedelta(days=1)).strftime("%Y-%m-%d")
-        await query.message.edit_text(format_schedule_for_date(date_str, schedule), reply_markup=get_main_keyboard())
-    elif data == "schedule_week":
-        await query.message.edit_text(format_schedule_for_week(schedule), reply_markup=get_main_keyboard())
-    elif data == "select_month":
-        await query.message.edit_text("Выберите месяц:", reply_markup=get_month_keyboard())
-    elif data.startswith("month_"):
-        _, year, month = data.split("_")
-        await query.message.edit_text(f"Выберите день ({month}.{year}):", reply_markup=get_day_keyboard(int(year), int(month)))
-    elif data.startswith("day_"):
-        date_str = data.split("_")[1]
-        await query.message.edit_text(format_schedule_for_date(date_str, schedule), reply_markup=get_main_keyboard())
-    elif data == "back_to_main":
-        await query.message.edit_text("Главное меню:", reply_markup=get_main_keyboard())
-    
+    date_str = datetime.now(MSK).strftime("%Y-%m-%d")
+    await query.message.edit_text(format_schedule_for_date(date_str, schedule), reply_markup=get_main_keyboard())
+    await query.answer()
+
+@dp.callback_query_handler(lambda c: c.data == "schedule_tomorrow")
+async def callback_schedule_tomorrow(query: types.CallbackQuery):
+    schedule = load_schedule()
+    date_str = (datetime.now(MSK) + timedelta(days=1)).strftime("%Y-%m-%d")
+    await query.message.edit_text(format_schedule_for_date(date_str, schedule), reply_markup=get_main_keyboard())
+    await query.answer()
+
+@dp.callback_query_handler(lambda c: c.data == "schedule_week")
+async def callback_schedule_week(query: types.CallbackQuery):
+    schedule = load_schedule()
+    await query.message.edit_text(format_schedule_for_week(schedule), reply_markup=get_main_keyboard())
+    await query.answer()
+
+@dp.callback_query_handler(lambda c: c.data == "select_month")
+async def callback_select_month(query: types.CallbackQuery):
+    await query.message.edit_text("Выберите месяц:", reply_markup=get_month_keyboard())
+    await query.answer()
+
+@dp.callback_query_handler(lambda c: c.data.startswith("month_"))
+async def callback_month(query: types.CallbackQuery):
+    _, year, month = query.data.split("_")
+    await query.message.edit_text(f"Выберите день ({month}.{year}):", reply_markup=get_day_keyboard(int(year), int(month)))
+    await query.answer()
+
+@dp.callback_query_handler(lambda c: c.data.startswith("day_"))
+async def callback_day(query: types.CallbackQuery):
+    date_str = query.data.split("_")[1]
+    schedule = load_schedule()
+    await query.message.edit_text(format_schedule_for_date(date_str, schedule), reply_markup=get_main_keyboard())
+    await query.answer()
+
+@dp.callback_query_handler(lambda c: c.data == "back_to_main")
+async def callback_back(query: types.CallbackQuery):
+    await query.message.edit_text("Главное меню:", reply_markup=get_main_keyboard())
     await query.answer()
 
 # --- Запуск бота ---
